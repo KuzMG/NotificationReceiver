@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">NotificationReceiver</string>
+    <string name="start">start</string>
+    <string name="stop">stop</string>
+    <string name="permission">permission</string>
+    <string name="channel">фоновая работа</string>
+    <string name="notification_title_not">Прослушивание уведомлений</string>
+    <string name="notification_title_sms">Прослушивание смс</string>
+    <string name="phone1">phone1</string>
+    <string name="phone2">phone2</string>
+    <string name="token">token</string>
+    <string name="scan_token_qr">SCAN TOKEN QR</string>
+    <string name="ping">Ping %1$s</string>
+</resources>

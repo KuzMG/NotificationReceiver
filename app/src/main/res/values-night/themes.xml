@@ -1,0 +1,6 @@
+<resources >
+
+    <style name="Base.Theme.NotificationReceiver" parent="Theme.Material3.DayNight.NoActionBar">
+
+    </style>
+</resources>
