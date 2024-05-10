@@ -5,9 +5,13 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.os.Build
 
-const val APP_VERSION = "v2.2"
+const val SETTINGS = "settings"
+const val PHONE1_PREF = "phone1"
+const val PHONE2_PREF = "phone2"
+const val TOKEN_PREF = "token"
+const val APP_VERSION = "v2.3.4"
 const val NOTIFICATION_CHANNEL_ID = "1"
-
+const val TAG = "TAG"
 class NRApplication : Application() {
     override fun onCreate() {
         super.onCreate()

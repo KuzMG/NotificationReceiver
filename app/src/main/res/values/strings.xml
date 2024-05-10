@@ -2,7 +2,11 @@
     <string name="app_name">NotificationReceiver</string>
     <string name="start">start</string>
     <string name="stop">stop</string>
-    <string name="permission">permission</string>
+    <string name="permission">start/stop</string>
+    <string name="share">share</string>
+    <string name="clear">clear</string>
+    <string name="battery">battery restrisions</string>
+    <string name="next">next</string>
     <string name="channel">фоновая работа</string>
     <string name="notification_title_not">Прослушивание уведомлений</string>
     <string name="notification_title_sms">Прослушивание смс</string>
@@ -10,5 +14,15 @@
     <string name="phone2">phone2</string>
     <string name="token">token</string>
     <string name="scan_token_qr">SCAN TOKEN QR</string>
-    <string name="ping">Ping %1$s</string>
+    <string name="app_version">App Version: %1$s</string>
+    <string name="android_version">Android Version: %1$s</string>
+    <string name="device_id">Device ID: %1$s</string>
+    <string name="token_info">Token: %1$s</string>
+    <string name="phone1_info">Phone1: %1$s</string>
+    <string name="phone2_info">Phone2: %1$s</string>
+    <string name="ping">Ping: %1$s</string>
+    <string name="service_up">Работает</string>
+    <string name="service_down">Остановлен</string>
+
+
 </resources>

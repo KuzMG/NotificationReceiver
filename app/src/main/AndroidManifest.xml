@@ -15,9 +15,11 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.INTERNET"/>
     <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <queries>
         <package android:name="ru.raiffeisennews" />
         <package android:name="com.android.mms"/>
+        <package android:name="com.maanavan.mb_kyrgyzstan" />
     </queries>
     <application
         android:name=".NRApplication"
@@ -32,7 +34,7 @@
         android:theme="@style/Theme.NotificationReceiver"
         tools:targetApi="34">
         <activity
-            android:name=".MainActivity"
+            android:name=".ui.MainActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
@@ -54,10 +56,5 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-
-        <service
-            android:name=".service.SmsService"
-            android:exported="false"
-            android:foregroundServiceType="specialUse"/>
     </application>
 </manifest>

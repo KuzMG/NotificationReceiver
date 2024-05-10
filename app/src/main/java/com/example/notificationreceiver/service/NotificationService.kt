@@ -2,6 +2,7 @@ package com.example.notificationreceiver.service
 
 import android.app.Notification
 import android.app.PendingIntent
+import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -11,20 +12,25 @@ import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
+import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.notificationreceiver.APP_VERSION
-import com.example.notificationreceiver.MainActivity
 import com.example.notificationreceiver.NOTIFICATION_CHANNEL_ID
 import com.example.notificationreceiver.PHONE1_PREF
 import com.example.notificationreceiver.PHONE2_PREF
 import com.example.notificationreceiver.R
 import com.example.notificationreceiver.SETTINGS
+import com.example.notificationreceiver.TAG
 import com.example.notificationreceiver.TOKEN_PREF
 import com.example.notificationreceiver.data.Telemetry
 import com.example.notificationreceiver.data.Webhook
+import com.example.notificationreceiver.getAppNameFromPkgName
 import com.example.notificationreceiver.manager.NotificationManager
+import com.example.notificationreceiver.registerReceiverCompat
+import com.example.notificationreceiver.ui.MainActivity
 import com.squareup.okhttp.Callback
 import com.squareup.okhttp.Request
 import com.squareup.okhttp.Response
@@ -32,9 +38,10 @@ import java.io.IOException
 import java.util.Date
 import java.util.Timer
 import java.util.TimerTask
+import kotlin.math.floor
 
 
-val MESSAGE_EXTRA = "message"
+const val STATUS_EXTRA = "status"
 const val DELIVERED = "SMS_DELIVERED"
 private const val NOTIFICATION_ID = 2
 private const val PERIOD: Long = 1 * 60 * 1000
@@ -53,6 +60,9 @@ class NotificationService : NotificationListenerService() {
         33 to "Android 13",
         34 to "Android 14"
     )
+    private val pushSenders = arrayOf("ru.raiffeisennews", "com.maanavan.mb_kyrgyzstan")
+    private val smsSender = arrayOf("900", "Raiffeisen", "Tinkoff", "Alfa-Bank", "Rosbank", "MBank", "URALSIB")
+    private var flagReceiver = false
     private lateinit var settings: SharedPreferences
     lateinit var manager: NotificationManager
     lateinit var phone1: String
@@ -60,17 +70,33 @@ class NotificationService : NotificationListenerService() {
     lateinit var androidId: String
     private var timer: Timer? = Timer()
 
+    private val receiverSms = object : BroadcastReceiver() {
+        override fun onReceive(arg0: Context, arg1: Intent) {
+            val msg = StringBuilder()
+            var name = ""
+            var flag = false
+            for (smsMessage in Telephony.Sms.Intents.getMessagesFromIntent(arg1)) {
+                if (smsSender.contains(smsMessage.originatingAddress)) {
+                    msg.append(smsMessage.messageBody)
+                    name = smsMessage.originatingAddress!!
+                    flag = true
+                }
+            }
+
+            if (flag) {
+                Log.i(TAG,"Пришло сообщение")
+                sendWebHook(name, msg.toString(), false)
+            }
+
+        }
+    }
+
     override fun onCreate() {
         super.onCreate()
         androidId = Settings.Secure.getString(
-            getApplicationContext().getContentResolver(),
+            applicationContext.contentResolver,
             Settings.Secure.ANDROID_ID
         )
-        settings = getSharedPreferences(SETTINGS, MODE_PRIVATE)
-        phone1 = settings.getString(PHONE1_PREF, "")!!
-        phone2 = settings.getString(PHONE2_PREF, "")!!
-        val token = settings.getString(TOKEN_PREF, "")!!
-        manager = NotificationManager(token)
     }
 
     override fun onListenerConnected() {
@@ -87,7 +113,17 @@ class NotificationService : NotificationListenerService() {
             .setContentIntent(pendingIntent)
             .build()
 
+        settings = getSharedPreferences(SETTINGS, MODE_PRIVATE)
+        phone1 = settings.getString(PHONE1_PREF, "")!!
+        phone2 = settings.getString(PHONE2_PREF, "")!!
+        val token = settings.getString(TOKEN_PREF, "")!!
+        manager = NotificationManager(token)
         startForeground(NOTIFICATION_ID, notification)
+        statusBroadcast(true)
+        Log.i(TAG,"Сервис запущен \n" +
+                "phone1 = $phone1\n" +
+                "phone2 = $phone2\n" +
+                "token = $token")
         timer?.schedule(object : TimerTask() {
             override fun run() {
                 try {
@@ -106,21 +142,27 @@ class NotificationService : NotificationListenerService() {
 
                     val code = manager.sendTelemetry(telemetry).execute().code()
                     if (code != 200) {
-                        exceptionBroadcast(Exception("Ошибка отправки телеметрии на сервер. Код: $code").toString())
+                        Log.i(TAG,"Ошибка отправки телеметрии на сервер. Код: $code")
                     } else {
-                        exceptionBroadcast("Телеметрия отправлена")
+                        Log.i(TAG,"Телеметрия отправлена")
                     }
                 } catch (e: Exception) {
-                    exceptionBroadcast(e.toString())
+                    Log.i(TAG,"Ошибка отправки телеметрии на сервер. $e")
                 }
             }
 
         }, 0, PERIOD)
+
+        registerReceiverCompat(
+            receiverSms,
+            IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
+        )
+        flagReceiver = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-
         if (intent != null && intent.action != null && intent.action!!.isNotEmpty()) {
+            Log.i(TAG,"Сервис перезапускается...")
             tryReconnectService()
         }
 
@@ -129,18 +171,16 @@ class NotificationService : NotificationListenerService() {
     }
 
 
-    fun tryReconnectService() {
+    private fun tryReconnectService() {
         try {
             toggleNotificationListenerService()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
-                val componentName = ComponentName(
-                    applicationContext,
-                    NotificationService::class.java
-                )
-                requestRebind(componentName)
-            }
+            val componentName = ComponentName(
+                applicationContext,
+                NotificationService::class.java
+            )
+            requestRebind(componentName)
         } catch (e: Exception) {
-            exceptionBroadcast(e.toString())
+            Log.i(TAG,"Перезапуск с ошибкой tryReconnectService $e")
         }
 
     }
@@ -157,65 +197,80 @@ class NotificationService : NotificationListenerService() {
                 PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP
             )
         } catch (e: Exception) {
-            exceptionBroadcast(e.toString())
+            Log.i(TAG,"Перезапуск с ошибкой toggleNotificationListenerService $e")
         }
 
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
         val pack = sbn.packageName
-//        Log.i("Push", "Уведомление $pack")
-        if (pack != "ru.raiffeisennews")
+        if (!pushSenders.contains(pack))
             return
+        Log.i(TAG,"Пришло уведомление от $pack")
         val extras = sbn.notification.extras
         val text = extras.getCharSequence(Notification.EXTRA_TEXT).toString()
         val title = extras?.getCharSequence(Notification.EXTRA_TITLE)
-        var applicationName = getAppNameFromPkgName(this, pack)
+        val applicationName = getAppNameFromPkgName(this, pack)
 
-        sendWebHook(applicationName, "$title $text")
+        sendWebHook(applicationName, "$title $text", true)
         cancelAllNotifications()
     }
 
-    fun sendWebHook(name: String, text: String) {
-        val date = Math.floor((Date().time / 1000).toDouble())
+    fun sendWebHook(name: String, text: String, type: Boolean) {
+        val strOk: String
+        val strError: String
+        if (type) {
+            strOk = "уведомления"
+            strError = "Уведомление"
+        } else {
+            strOk = "сообщения"
+            strError = "Сообщение"
+        }
+        val date = floor((Date().time / 1000).toDouble())
         val webhook = Webhook(androidId, name, text, date, phone1, phone2)
         manager.sendWebHook(webhook).enqueue(object : Callback {
             override fun onFailure(request: Request, e: IOException) {
-                exceptionBroadcast(e.toString())
+                Log.i(TAG,"Ошибка отправки $strOk на сервер. $e")
             }
 
             override fun onResponse(response: Response) {
+
                 if (response.code() != 200) {
-                    exceptionBroadcast(Exception("Ошибка отправки уведомления на сервер. Код: ${response.code()}").toString())
+                    Log.i(TAG,"Ошибка отправки $strOk на сервер. Код: ${response.code()}")
+
                 } else {
-                    exceptionBroadcast("Уведомление отправлен")
+                    Log.i(TAG,"$strError отправлено")
                 }
             }
         })
     }
 
-    fun exceptionBroadcast(message: String) {
+    private fun statusBroadcast(status: Boolean) {
         sendBroadcast(Intent(DELIVERED).apply {
-            putExtra(MESSAGE_EXTRA, message)
+            putExtra(STATUS_EXTRA, status)
         })
     }
 
-    fun getAppNameFromPkgName(context: Context, Packagename: String?): String {
-        return try {
-            val packageManager = context.packageManager
-            val info =
-                packageManager.getApplicationInfo(Packagename!!, PackageManager.GET_META_DATA)
-            packageManager.getApplicationLabel(info) as String
-        } catch (e: PackageManager.NameNotFoundException) {
-            "Untitled"
-        }
+    override fun onListenerDisconnected() {
+        super.onListenerDisconnected()
+        Log.i(TAG,"Сервис onListenerDisconnected()")
+        stop()
     }
+
 
     override fun onDestroy() {
         super.onDestroy()
+        Log.i(TAG,"Сервис onDestroy()")
+        stop()
+    }
+    private fun stop(){
+        statusBroadcast(false)
         timer?.cancel()
         timer = null
+        if (flagReceiver) {
+            unregisterReceiver(receiverSms)
+            flagReceiver =false
+        }
     }
-
 
 }

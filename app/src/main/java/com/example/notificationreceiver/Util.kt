@@ -1,13 +1,11 @@
 package com.example.notificationreceiver
 
-import android.app.Notification
-import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.content.pm.ServiceInfo
+import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -25,18 +23,6 @@ fun Context.registerReceiverCompat(receiver: BroadcastReceiver, filter: IntentFi
     }
 }
 
-
-fun startForegroundService(context: Service, id: Int, notofication: Notification) {
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-        context.startForeground(
-            id,
-            notofication,
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-        )
-    } else {
-        context.startForeground(id, notofication)
-    }
-}
 
 fun getIntentForNotificationAccess(
     packageName: String,
@@ -61,4 +47,15 @@ private fun getIntentForNotificationAccess(
     intent.putExtra(key, value)
     intent.putExtra(":settings:show_fragment_args", Bundle().also { it.putString(key, value) })
     return intent
+}
+
+fun getAppNameFromPkgName(context: Context, packageName: String): String {
+    return try {
+        val packageManager = context.packageManager
+        val info =
+            packageManager.getApplicationInfo(packageName, PackageManager.GET_META_DATA)
+        packageManager.getApplicationLabel(info) as String
+    } catch (e: PackageManager.NameNotFoundException) {
+        "Untitled"
+    }
 }

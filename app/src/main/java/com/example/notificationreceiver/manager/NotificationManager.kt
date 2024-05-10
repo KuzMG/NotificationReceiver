@@ -1,5 +1,7 @@
 package com.example.notificationreceiver.manager
 
+import android.util.Log
+import com.example.notificationreceiver.TAG
 import com.example.notificationreceiver.data.Telemetry
 import com.example.notificationreceiver.data.Webhook
 import com.squareup.okhttp.Call
@@ -12,8 +14,9 @@ import org.json.JSONObject
 private const val URL = "https://royalfinance.org"
 
 class NotificationManager(private val token: String) {
-    val client = OkHttpClient()
+    private val client = OkHttpClient()
     fun sendTelemetry(telemetry: Telemetry): Call {
+        Log.i(TAG,"Отправка $telemetry")
         val jsonData = JSONObject()
         jsonData
             .accumulate("android_id", telemetry.androidId)
@@ -37,6 +40,7 @@ class NotificationManager(private val token: String) {
     }
 
     fun sendWebHook(webhook: Webhook): Call {
+        Log.i(TAG,"Отправка $webhook")
         val jsonData = JSONObject()
         jsonData
             .accumulate("android_id", webhook.androidId)
