@@ -47,12 +47,12 @@ class DetailFragment : Fragment() {
     private lateinit var viewModel: DetailViewModel
 
 
-    private val requestPermission =
-        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
-            if (isGranted) {
-                check()
-            }
-        }
+    //    private val requestPermission =
+//        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+//            if (isGranted) {
+//                check()
+//            }
+//        }
     private val requestPermissionNotificationActivity =
         registerForActivityResult(ActivityResultContracts.StartActivityForResult()) {}
 
@@ -164,7 +164,12 @@ class DetailFragment : Fragment() {
                     )
                         .show()
                 } else {
-                    check()
+                    requestPermissionNotificationActivity.launch(
+                        getIntentForNotificationAccess(
+                            requireContext().packageName,
+                            NotificationService::class.java
+                        )
+                    )
                 }
             }
             batteryButton.setOnClickListener {
@@ -201,29 +206,7 @@ class DetailFragment : Fragment() {
 
     }
 
-    fun check() {
-        if (ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        } else if (ContextCompat.checkSelfPermission(
-                requireContext(),
-                Manifest.permission.RECEIVE_SMS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            requestPermission.launch(Manifest.permission.RECEIVE_SMS)
-        } else {
 
-            requestPermissionNotificationActivity.launch(
-                getIntentForNotificationAccess(
-                    requireContext().packageName,
-                    NotificationService::class.java
-                )
-            )
-        }
-    }
 
 
     override fun onDestroy() {

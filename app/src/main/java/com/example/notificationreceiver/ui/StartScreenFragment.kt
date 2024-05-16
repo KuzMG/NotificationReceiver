@@ -1,6 +1,8 @@
 package com.example.notificationreceiver.ui
 
+import android.Manifest
 import android.content.SharedPreferences
+import android.content.pm.PackageManager
 import android.os.Bundle
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
@@ -8,13 +10,17 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.Button
 import android.widget.EditText
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import androidx.core.content.ContextCompat
 import com.example.notificationreceiver.PHONE1_PREF
 import com.example.notificationreceiver.PHONE2_PREF
 import com.example.notificationreceiver.R
 import com.example.notificationreceiver.SETTINGS
 import com.example.notificationreceiver.TOKEN_PREF
+import com.example.notificationreceiver.getIntentForNotificationAccess
+import com.example.notificationreceiver.service.NotificationService
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 
@@ -34,6 +40,13 @@ class StartScreenFragment : Fragment() {
         registerForActivityResult(ScanContract()) { result ->
             if (result.contents != null) {
                 tokenEditText.setText(result.contents)
+            }
+        }
+
+    private val requestPermission =
+        registerForActivityResult(ActivityResultContracts.RequestPermission()) { isGranted ->
+            if (isGranted) {
+                check()
             }
         }
 
@@ -69,6 +82,23 @@ class StartScreenFragment : Fragment() {
             scanQrResultLauncher.launch(scanOptions)
         }
         saveButton.setOnClickListener {
+            check()
+        }
+    }
+    fun check() {
+        if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else if (ContextCompat.checkSelfPermission(
+                requireContext(),
+                Manifest.permission.RECEIVE_SMS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermission.launch(Manifest.permission.RECEIVE_SMS)
+        } else {
             editor.putString(PHONE1_PREF, phone1EditText.text.toString()).apply()
             editor.putString(PHONE2_PREF, phone2EditText.text.toString()).apply()
             editor.putString(TOKEN_PREF, tokenEditText.text.toString()).apply()
