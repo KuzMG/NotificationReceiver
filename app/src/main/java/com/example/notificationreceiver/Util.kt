@@ -1,11 +1,15 @@
 package com.example.notificationreceiver
 
+import android.app.ActivityManager
+import android.app.Notification
+import android.app.Service
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -23,6 +27,17 @@ fun Context.registerReceiverCompat(receiver: BroadcastReceiver, filter: IntentFi
     }
 }
 
+fun Service.startForegroundServiceCompat(id: Int, notification: Notification) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+        startForeground(
+            id,
+            notification,
+            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
+        )
+    } else {
+        startForeground(id, notification)
+    }
+}
 
 fun getIntentForNotificationAccess(
     packageName: String,
@@ -30,6 +45,15 @@ fun getIntentForNotificationAccess(
 ): Intent =
     getIntentForNotificationAccess(packageName, notificationAccessServiceClass.name)
 
+fun Context.isMyServiceRunning(serviceClass: Class<*>): Boolean {
+    val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager?
+    for (service in manager!!.getRunningServices(Int.MAX_VALUE)) {
+        if (serviceClass.name == service.service.className) {
+            return true
+        }
+    }
+    return false
+}
 
 private fun getIntentForNotificationAccess(
     packageName: String,

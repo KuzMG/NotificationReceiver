@@ -49,7 +49,7 @@ class SmsReceiver : BroadcastReceiver() {
             Log.i(TAG,"Получено сообщение от $name")
             sendWebHook(context,name, msg.toString())
         } else{
-            Log.i(TAG,"Полученое сообщение не прошло фильтр")
+            Log.i(TAG,"Полученное сообщение не прошло фильтр")
         }
     }
 

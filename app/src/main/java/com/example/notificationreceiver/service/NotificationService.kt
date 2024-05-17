@@ -2,9 +2,7 @@ package com.example.notificationreceiver.service
 
 import android.app.Notification
 import android.app.PendingIntent
-import android.content.BroadcastReceiver
 import android.content.ComponentName
-import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
@@ -12,7 +10,6 @@ import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Build
 import android.provider.Settings
-import android.provider.Telephony
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
@@ -29,7 +26,7 @@ import com.example.notificationreceiver.data.Telemetry
 import com.example.notificationreceiver.data.Webhook
 import com.example.notificationreceiver.getAppNameFromPkgName
 import com.example.notificationreceiver.manager.NotificationManager
-import com.example.notificationreceiver.registerReceiverCompat
+import com.example.notificationreceiver.startForegroundServiceCompat
 import com.example.notificationreceiver.ui.MainActivity
 import com.squareup.okhttp.Callback
 import com.squareup.okhttp.Request
@@ -44,7 +41,7 @@ import kotlin.math.floor
 const val STATUS_EXTRA = "status"
 const val DELIVERED = "SMS_DELIVERED"
 private const val NOTIFICATION_ID = 2
-private const val PERIOD: Long = 1 * 30 * 1000
+private const val PERIOD: Long = 1 * 15 * 1000
 
 class NotificationService : NotificationListenerService() {
     private val versionMap = mapOf(
@@ -95,10 +92,31 @@ class NotificationService : NotificationListenerService() {
             applicationContext.contentResolver,
             Settings.Secure.ANDROID_ID
         )
+        settings = getSharedPreferences(SETTINGS, MODE_PRIVATE)
+        phone1 = settings.getString(PHONE1_PREF, "")!!
+        phone2 = settings.getString(PHONE2_PREF, "")!!
+        val token = settings.getString(TOKEN_PREF, "")!!
+        manager = NotificationManager(token)
+        Log.i(TAG,"phone1 =$phone1 \n" +
+                "phone2 = $phone2 \n" +
+                "token = $token")
     }
 
     override fun onListenerConnected() {
         super.onListenerConnected()
+        Log.i(TAG,"Прослушивание уведомлений запущено")
+//        registerReceiverCompat(
+//            receiverSms,
+//            IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
+//        )
+//        flagReceiver = true
+    }
+
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        if (intent != null && intent.action != null && intent.action!!.isNotEmpty()) {
+            Log.i(TAG,"Сервис перезапускается...")
+            tryReconnectService()
+        }
         val pendingIntent = PendingIntent.getActivity(
             this,
             0,
@@ -111,17 +129,9 @@ class NotificationService : NotificationListenerService() {
             .setContentIntent(pendingIntent)
             .build()
 
-        settings = getSharedPreferences(SETTINGS, MODE_PRIVATE)
-        phone1 = settings.getString(PHONE1_PREF, "")!!
-        phone2 = settings.getString(PHONE2_PREF, "")!!
-        val token = settings.getString(TOKEN_PREF, "")!!
-        manager = NotificationManager(token)
-        startForeground(NOTIFICATION_ID, notification)
+        startForegroundServiceCompat(NOTIFICATION_ID, notification)
         statusBroadcast(true)
-        Log.i(TAG,"Сервис запущен \n" +
-                "phone1 = $phone1\n" +
-                "phone2 = $phone2\n" +
-                "token = $token")
+        Log.i(TAG,"Сервис запущен")
         timer?.schedule(object : TimerTask() {
             override fun run() {
                 try {
@@ -149,21 +159,6 @@ class NotificationService : NotificationListenerService() {
             }
 
         }, 0, PERIOD)
-
-//        registerReceiverCompat(
-//            receiverSms,
-//            IntentFilter(Telephony.Sms.Intents.SMS_RECEIVED_ACTION)
-//        )
-//        flagReceiver = true
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        if (intent != null && intent.action != null && intent.action!!.isNotEmpty()) {
-            Log.i(TAG,"Сервис перезапускается...")
-            tryReconnectService()
-        }
-
-
         return START_STICKY
     }
 
@@ -181,7 +176,6 @@ class NotificationService : NotificationListenerService() {
         }
 
     }
-
     private fun toggleNotificationListenerService() {
         try {
             val pm = packageManager
@@ -252,14 +246,13 @@ class NotificationService : NotificationListenerService() {
 
     override fun onListenerDisconnected() {
         super.onListenerDisconnected()
-        Log.i(TAG,"Сервис onListenerDisconnected()")
+        Log.i(TAG,"Прослушивание уведомлений остановлено")
         stop()
     }
 
-
     override fun onDestroy() {
         super.onDestroy()
-        Log.i(TAG,"Сервис onDestroy()")
+        Log.i(TAG,"Сервис остановлен")
         stop()
     }
     private fun stop(){

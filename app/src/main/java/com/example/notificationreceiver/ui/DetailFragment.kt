@@ -1,15 +1,11 @@
 package com.example.notificationreceiver.ui
 
-import android.Manifest
 import android.app.Activity
-import android.app.ActivityManager
 import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.ACTIVITY_SERVICE
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.SharedPreferences
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -23,6 +19,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.content.ContextCompat.getSystemService
+import androidx.core.content.ContextCompat.startForegroundService
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.ViewModelProvider
 import com.example.notificationreceiver.APP_VERSION
@@ -33,6 +30,7 @@ import com.example.notificationreceiver.SETTINGS
 import com.example.notificationreceiver.TOKEN_PREF
 import com.example.notificationreceiver.databinding.FragmentDetailBinding
 import com.example.notificationreceiver.getIntentForNotificationAccess
+import com.example.notificationreceiver.isMyServiceRunning
 import com.example.notificationreceiver.registerReceiverCompat
 import com.example.notificationreceiver.service.DELIVERED
 import com.example.notificationreceiver.service.NotificationService
@@ -94,7 +92,8 @@ class DetailFragment : Fragment() {
             toolbar.setNavigationIcon(R.drawable.ic_back)
 
         }
-        checkServiceStatus()
+        viewServiceStatus(requireContext().isMyServiceRunning(NotificationService::class.java))
+
         return binding.root
     }
 
@@ -109,19 +108,6 @@ class DetailFragment : Fragment() {
         }
     }
 
-    private fun checkServiceStatus() {
-        var flag = true
-        val am = requireContext().getSystemService(ACTIVITY_SERVICE) as ActivityManager
-        @Suppress("DEPRECATION") val rs = am.getRunningServices(50)
-        for (i in rs.indices) {
-            val rsi = rs[i]
-            if (rsi.service.className == "com.example.notificationreceiver.service.NotificationService") {
-                flag = false
-            }
-        }
-        viewServiceStatus(!flag)
-
-    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -164,6 +150,19 @@ class DetailFragment : Fragment() {
                     )
                         .show()
                 } else {
+                    if (requireContext().isMyServiceRunning(NotificationService::class.java)) {
+                        requireContext().stopService(
+                            Intent(
+                                requireContext(),
+                                NotificationService::class.java
+                            )
+                        )
+                    } else {
+                        startForegroundService(
+                            requireContext(),
+                            Intent(requireContext(), NotificationService::class.java)
+                        )
+                    }
                     requestPermissionNotificationActivity.launch(
                         getIntentForNotificationAccess(
                             requireContext().packageName,
@@ -205,8 +204,6 @@ class DetailFragment : Fragment() {
 
 
     }
-
-
 
 
     override fun onDestroy() {
